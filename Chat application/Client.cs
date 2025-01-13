@@ -97,23 +97,45 @@ namespace Chat_application
 
             byte method = dataBuf[0];
 
-            if(method == 1)
+            switch(method)
             {
-                Disconnect();
-                return;
-            }
+                //Message
+                case 0:
+                    IPAddress src = new IPAddress(dataBuf[7..11]);
 
-            IPAddress src = new IPAddress(dataBuf[7..11]);
+                    if (BitConverter.ToInt32(dataBuf[11..15]) > 0)
+                    {
 
-            if (BitConverter.ToInt32(dataBuf[11..15]) > 0)
-            {
+                    }
+                    else
+                    {
+                        if (dataBuf[15] == 0)
+                        {
+                            Console.WriteLine("{0}: {1}", src, Encoding.ASCII.GetString(dataBuf[16..]));
+                        }
+                    }
+                    break;
+                //Disconnect
+                case 1:
+                    Disconnect();
+                    return;
+                //Fetch users
+                case 2:
+                    string users = "";
+                    for(int i = 16; i < dataBuf.Length; i += 6)
+                    {
+                        IPAddress userIP = new IPAddress(dataBuf[i..(i + 4)]);
+                        ushort userPort = BitConverter.ToUInt16(dataBuf[(i + 4)..(i + 6)]);
 
-            } else
-            {
-                if (dataBuf[15] == 0)
-                {
-                    Console.WriteLine("{0}: {1}", src, Encoding.ASCII.GetString(dataBuf[16..]));
-                }
+                        if (userIP.Equals(IPAddress.Parse("0.0.0.0"))) break;
+
+                        users += string.Format("{0}:{1}, ", userIP, userPort);
+                    }
+
+                    if (users.Length > 0) users = users[..(users.Length - 2)];
+
+                    Console.WriteLine(users);
+                    break;
             }
 
             socketAR.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socketAR);

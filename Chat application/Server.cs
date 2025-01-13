@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
@@ -79,34 +80,52 @@ namespace Chat_application
 
         private void ReceiveCallback(IAsyncResult AR)
         {
-            try
-            {
-                Socket socket = (Socket)AR.AsyncState;
-                socket.EndReceive(AR);
-                byte[] dataBuf = new byte[1024];
-                Array.Copy(buffer, dataBuf, 1024);
+            Socket socket = (Socket)AR.AsyncState;
+            socket.EndReceive(AR);
+            byte[] dataBuf = new byte[1024];
+            Array.Copy(buffer, dataBuf, 1024);
 
-                byte method = dataBuf[0];
-                if (method == 1)
-                {
+            byte method = dataBuf[0];
+
+            switch (method)
+            {
+                case 1:
                     Console.WriteLine("{0} left on port {1}", ((IPEndPoint)socket.RemoteEndPoint).Address, ((IPEndPoint)socket.RemoteEndPoint).Port);
                     socket.Shutdown(SocketShutdown.Both);
                     socket.Close();
                     connectedClients.Remove(socket);
                     return;
-                }
+                case 2:
+                    Console.WriteLine("Sent users to {0} on port {1}", ((IPEndPoint)socket.RemoteEndPoint).Address, ((IPEndPoint)socket.RemoteEndPoint).Port);
 
-                IPAddress destination = new IPAddress(dataBuf[1..5]);
-                ushort destinationPort = BitConverter.ToUInt16(dataBuf[5..7]);
-                if (method == 0)
-                {
-                    Task forwardMessage = new Task(() => { ForwardMessage(dataBuf, destination, destinationPort); });
-                    forwardMessage.Start();
-                }
+                    dataBuf = dataBuf[..16].Concat(GetUsers()).ToArray();
+                    break;
+            }
 
-                socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socket);
-            } catch (Exception ex) { }
-            
+            IPAddress destination = new IPAddress(dataBuf[1..5]);
+            ushort destinationPort = BitConverter.ToUInt16(dataBuf[5..7]);
+
+            Task forwardMessage = new Task(() => { ForwardMessage(dataBuf, destination, destinationPort); });
+            forwardMessage.Start();
+
+            socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socket);
+        }
+
+        private byte[] GetUsers()
+        {
+            byte[] users = new byte[0];
+
+            foreach(Socket client in connectedClients)
+            {
+                IPAddress ip = ((IPEndPoint)client.RemoteEndPoint).Address;
+                ushort port = Convert.ToUInt16(((IPEndPoint)client.RemoteEndPoint).Port);
+
+                byte[] combinedData = ip.GetAddressBytes().Concat(BitConverter.GetBytes(port)).ToArray();
+
+                users = users.Concat(combinedData).ToArray();
+            }
+
+            return users;
         }
 
         private void ForwardMessage(byte[] packet, IPAddress destination, ushort port)

@@ -147,6 +147,21 @@ public class chatApplication()
                     if (SocketConnected(client.socket)) Console.WriteLine("Client connected to {0} on port {1}", ((IPEndPoint)client.socket.RemoteEndPoint).Address, ((IPEndPoint)client.socket.LocalEndPoint).Port);
 
                     break;
+                case "users":
+                    if (!SocketConnected(client.socket))
+                    {
+                        Console.WriteLine("Client not connected to anything");
+                        continue;
+                    }
+
+                    Task usersTask = new Task(() =>
+                    {
+                        client.Message(2, 0, GetLocalIPAddress(), ((IPEndPoint)client.socket.LocalEndPoint).Port, [0]);
+                    });
+
+                    usersTask.Start();
+
+                    break;
             }
         } 
     }
