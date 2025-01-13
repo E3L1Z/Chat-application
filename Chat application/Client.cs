@@ -41,6 +41,7 @@ namespace Chat_application
 
         public void Disconnect()
         {
+            Message(1, 0, ((IPEndPoint)socket.RemoteEndPoint).Address, ((IPEndPoint)socket.RemoteEndPoint).Port, new byte[1008]);
             socket.Shutdown(SocketShutdown.Both);
             socket.Close();
 
@@ -87,10 +88,20 @@ namespace Chat_application
 
         private void ReceiveCallback(IAsyncResult AR)
         {
-            Socket socket = (Socket)AR.AsyncState;
-            socket.EndReceive(AR);
+            if (socket == null) return;
+
+            Socket socketAR = (Socket)AR.AsyncState;
+            socketAR.EndReceive(AR);
             byte[] dataBuf = new byte[1024];
             Array.Copy(buffer, dataBuf, 1024);
+
+            byte method = dataBuf[0];
+
+            if(method == 1)
+            {
+                Disconnect();
+                return;
+            }
 
             IPAddress src = new IPAddress(dataBuf[7..11]);
 
@@ -105,7 +116,7 @@ namespace Chat_application
                 }
             }
 
-            socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socket);
+            socketAR.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socketAR);
         }
     }
 }

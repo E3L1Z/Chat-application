@@ -66,26 +66,47 @@ namespace Chat_application
 
         private void AcceptCallback(IAsyncResult AR)
         {
-            Socket socket = connectionsListener.EndAccept(AR);
-            Console.WriteLine("{0} joined on port {1}", ((IPEndPoint)socket.RemoteEndPoint).Address, ((IPEndPoint)socket.RemoteEndPoint).Port);
-            connectedClients.Add(socket);
-            socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socket);
-            connectionsListener.BeginAccept(AcceptCallback, null);
+            try
+            {
+                Socket socket = connectionsListener.EndAccept(AR);
+                Console.WriteLine("{0} joined on port {1}", ((IPEndPoint)socket.RemoteEndPoint).Address, ((IPEndPoint)socket.RemoteEndPoint).Port);
+                connectedClients.Add(socket);
+                socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socket);
+                connectionsListener.BeginAccept(AcceptCallback, null);
+            } catch (Exception ex) { }
+            
         }
 
         private void ReceiveCallback(IAsyncResult AR)
         {
-            Socket socket = (Socket)AR.AsyncState;
-            socket.EndReceive(AR);
-            byte[] dataBuf = new byte[1024];
-            Array.Copy(buffer, dataBuf, 1024);
+            try
+            {
+                Socket socket = (Socket)AR.AsyncState;
+                socket.EndReceive(AR);
+                byte[] dataBuf = new byte[1024];
+                Array.Copy(buffer, dataBuf, 1024);
 
-            IPAddress destination = new IPAddress(dataBuf[1..5]);
-            ushort destinationPort = BitConverter.ToUInt16(dataBuf[5..7]);
-            Task forwardMessage = new Task(() => { ForwardMessage(dataBuf, destination, destinationPort); });
-            forwardMessage.Start();
+                byte method = dataBuf[0];
+                if (method == 1)
+                {
+                    Console.WriteLine("{0} left on port {1}", ((IPEndPoint)socket.RemoteEndPoint).Address, ((IPEndPoint)socket.RemoteEndPoint).Port);
+                    socket.Shutdown(SocketShutdown.Both);
+                    socket.Close();
+                    connectedClients.Remove(socket);
+                    return;
+                }
 
-            socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socket);
+                IPAddress destination = new IPAddress(dataBuf[1..5]);
+                ushort destinationPort = BitConverter.ToUInt16(dataBuf[5..7]);
+                if (method == 0)
+                {
+                    Task forwardMessage = new Task(() => { ForwardMessage(dataBuf, destination, destinationPort); });
+                    forwardMessage.Start();
+                }
+
+                socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socket);
+            } catch (Exception ex) { }
+            
         }
 
         private void ForwardMessage(byte[] packet, IPAddress destination, ushort port)
@@ -98,7 +119,11 @@ namespace Chat_application
 
             foreach (Socket socket in connectedClients)
             {
-                if(forwardToEveryone || (((IPEndPoint)socket.RemoteEndPoint).Address == destination && Convert.ToUInt16(((IPEndPoint)connectionsListener.LocalEndPoint).Port) == port) || (((IPEndPoint)socket.RemoteEndPoint).Address == destination && Convert.ToUInt16(((IPEndPoint)socket.RemoteEndPoint).Port) == port))
+                IPAddress clientIP = ((IPEndPoint)socket.RemoteEndPoint).Address;
+
+                if (clientIP.Equals(IPAddress.Parse("127.0.0.1"))) clientIP = new IPAddress(GetLocalIPAddress());
+
+                if (forwardToEveryone || (clientIP.Equals(destination) && Convert.ToUInt16(((IPEndPoint)connectionsListener.LocalEndPoint).Port) == port) || (clientIP.Equals(destination) && Convert.ToUInt16(((IPEndPoint)socket.RemoteEndPoint).Port) == port))
                 {
                     socket.BeginSend(packet, 0, packet.Length, SocketFlags.None, new AsyncCallback(SendCallBack), socket);
                 }
@@ -113,12 +138,9 @@ namespace Chat_application
 
         public void CloseServer()
         {
-            foreach(Socket socket in connectedClients)
-            {
-                socket.Shutdown(SocketShutdown.Both);
-                socket.Close();
-                connectedClients.Remove(socket);
-            }
+            ForwardMessage(new byte[] { 1 }.Concat(new byte[1023]).ToArray(), new IPAddress(GetLocalIPAddress()), Convert.ToUInt16(((IPEndPoint)connectionsListener.LocalEndPoint).Port));
+
+            connectedClients.Clear();
 
             connectionsListener.Close();
             Console.WriteLine("Server closed");

@@ -67,18 +67,24 @@ public class chatApplication()
                     break;
                 case "quit":
                     //Check if user is trying to leave his own server
-                    if (localNames.Contains(commandArray[1]) && ((IPEndPoint)client.socket.LocalEndPoint).Port == ((IPEndPoint)server.connectionsListener.LocalEndPoint).Port && ((IPEndPoint)client.socket.LocalEndPoint).Address == ((IPEndPoint)server.connectionsListener.LocalEndPoint).Address) Console.WriteLine("You cannot leave your own server");
+                    if (server != null && SocketConnected(server.connectionsListener)) Console.WriteLine("You cannot leave your own server");
                     //Leave server if not your own
-                    else if (client.socket.Connected) client.Disconnect();
+                    else if (SocketConnected(client.socket)) client.Disconnect();
                     else Console.WriteLine("You are currently not connected to any server");
 
                     break;
                 case "msg":
+                    if (!SocketConnected(client.socket))
+                    {
+                        Console.WriteLine("Client not connected to anything");
+                        continue;
+                    }
+
                     int messageIndex = 1;
-                    IPAddress destination = GetLocalIPAddress();
+                    IPAddress destination = ((IPEndPoint)client.socket.RemoteEndPoint).Address;
                     int destinationPort = ((IPEndPoint)client.socket.RemoteEndPoint).Port;
 
-                    for (int i = 0; i < commandArray.Length; i++)
+                    for (int i = 1; i < commandArray.Length; i++)
                     {
                         string arg = commandArray[i];
                         string nextArg = "";
@@ -95,6 +101,17 @@ public class chatApplication()
                             else if (IPAddress.TryParse(nextArg[2..], out result))
                             {
                                 destination = IPAddress.Parse(nextArg[2..]);
+                                messageIndex = i + 2;
+                            }
+
+                            if (arg.Contains("localhost"))
+                            {
+                                destination = GetLocalIPAddress();
+                                messageIndex = i + 1;
+                            }
+                            if (nextArg.Contains("localhost"))
+                            {
+                                destination = GetLocalIPAddress();
                                 messageIndex = i + 2;
                             }
                         }
@@ -114,12 +131,20 @@ public class chatApplication()
                         }
                     }
 
+                    if (destination.Equals(IPAddress.Parse("127.0.0.1"))) destination = GetLocalIPAddress();
+
                     Task sendMsg = new Task(() =>
                     {
                         client.Message(0, 0, destination, destinationPort, Encoding.Default.GetBytes(string.Join(" ", commandArray[messageIndex..])));
                     });
 
                     sendMsg.Start();
+
+                    break;
+                case "info":
+                    Console.WriteLine("Own ip: {0}", GetLocalIPAddress());
+                    if(server != null && SocketConnected(server.connectionsListener)) Console.WriteLine("Server running on port {0}", ((IPEndPoint)server.connectionsListener.LocalEndPoint).Port);
+                    if (SocketConnected(client.socket)) Console.WriteLine("Client connected to {0} on port {1}", ((IPEndPoint)client.socket.RemoteEndPoint).Address, ((IPEndPoint)client.socket.LocalEndPoint).Port);
 
                     break;
             }
@@ -138,5 +163,17 @@ public class chatApplication()
         }
 
         return IPAddress.Parse("127.0.0.1");
+    }
+
+    private static bool SocketConnected(Socket s)
+    {
+        if(s == null) return false;
+
+        bool part1 = s.Poll(1000, SelectMode.SelectRead);
+        bool part2 = (s.Available == 0);
+        if (part1 && part2)
+            return false;
+        else
+            return true;
     }
 }
