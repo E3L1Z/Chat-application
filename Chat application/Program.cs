@@ -7,12 +7,10 @@ using System.Text;
 /*
  * TODO
  * Messages longer than 1008 bytes
- * Kick
  * Encryption
- * Comments
- * Help command
  * UDP connection?
  * DNS?
+ * README.md
 */
 
 public class chatApplication()
@@ -26,6 +24,8 @@ public class chatApplication()
 
         string[] localNames = ["127.0.0.1", "localhost"];
 
+        Console.WriteLine("Type \"help\" to get list of commands");
+
         while (true)
         {
             string command = Console.ReadLine();
@@ -37,12 +37,13 @@ public class chatApplication()
                     break;
 
                 case "spawn":
-                    //Check that 
+                    //Check that no server is being hosted
                     if (server == null)
                     {
                         bool serverSpawnedSuccesfully;
                         server = new Server(commandArray[1..], out serverSpawnedSuccesfully);
                         if (!serverSpawnedSuccesfully) server = null;
+                        //If server was succesfully spawned join it
                         else client.Connect("127.0.0.1", ((IPEndPoint)server.connectionsListener.LocalEndPoint).Port, []);
                     }
                     else Console.WriteLine("Server already running on port {0}", ((IPEndPoint)server.connectionsListener.LocalEndPoint).Port);
@@ -60,7 +61,7 @@ public class chatApplication()
                 case "join":
                     if(commandArray.Length < 2)
                     {
-                        Console.WriteLine("Specify a target to join to");
+                        Console.WriteLine("Specify a target to join a server");
                         continue;
                     }
 
@@ -75,11 +76,13 @@ public class chatApplication()
 
                         if (arg.StartsWith("-P"))
                         {
+                            //Check whether port was specified on the same arg as -P like -P4444 or -P 4444
                             if (arg.Any(char.IsDigit)) int.TryParse(arg[2..], out port);
                             else if (nextArg.Any(char.IsDigit)) int.TryParse(nextArg, out port);
                         }
                     }
 
+                    //Check if user is trying to join their own server 
                     if (server != null && localNames.Contains(commandArray[1]) && port == ((IPEndPoint)server.connectionsListener.LocalEndPoint).Port) Console.WriteLine("You are already connected to your own network");
                     else client.Connect(commandArray[1], port, commandArray[2..]);
 
@@ -173,6 +176,7 @@ public class chatApplication()
                         continue;
                     }
 
+
                     Task usersTask = new Task(() =>
                     {
                         client.Message(2, 0, GetLocalIPAddress(), ((IPEndPoint)client.socket.LocalEndPoint).Port, [0]);
@@ -180,6 +184,46 @@ public class chatApplication()
 
                     usersTask.Start();
 
+                    break;
+                case "kick":
+                    if (commandArray.Length < 2 && commandArray[1].Contains(":")) Console.WriteLine("Specify destination");
+                    string[] destArray = commandArray[1].Split(":");
+
+                    if (!IPAddress.TryParse(destArray[0], out IPAddress destinationIp) || !ushort.TryParse(destArray[1], out ushort uShortDestinationPort))
+                    {
+                        Console.WriteLine("No valid user specified");
+                        continue;
+                    }
+
+                    if (server != null && SocketConnected(server.connectionsListener)) 
+                    {
+                        if (destinationIp.Equals(GetLocalIPAddress()) && (ushort)((IPEndPoint)client.socket.LocalEndPoint).Port == uShortDestinationPort)
+                        {
+                            Console.WriteLine("You cannot kick yourself");
+                            continue;
+                        }
+
+                        server.KickUser(destinationIp, uShortDestinationPort);
+                    } 
+                    else Console.WriteLine("You are not hosting a server");
+
+                    break;
+                case "help":
+                    Console.WriteLine(@"spawn - Used to spawn a server
+    -P (-P*port* or -P *port*) - Specify port (default 25000)
+close - Close running server
+join *destIP* - Join server on ip
+    -P (-P*port* or -P *port*) - Specify port (default 25000)
+quit - Leave connected server
+msg *message* - Send message to every person on connected server
+    -P (-P*port* or -P *port*) - Specify users port who you want to message (default servers own port)
+    -d (-d*destIP* or -d *destIP*) - Specify user who you want to message (default servers ip)
+    If -P matches servers port then every user with ip -d will get message
+    Specify both users port and ip to message only that user
+info - Show information about your ip, your connection to server and the server you are hosting
+users - List every user except for you online on the server
+kick *ip*:*port* - Kick user with given ip and port off the server
+help - Shows this message");
                     break;
             }
         } 

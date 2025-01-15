@@ -183,6 +183,11 @@ namespace Chat_application
             Console.WriteLine("Server closed");
         }
 
+        public void KickUser(IPAddress userIp, ushort port)
+        {
+            ForwardMessage(new byte[] { 1 }.Concat(new byte[1023]).ToArray(), userIp, port);
+        }
+
         private byte[] GetLocalIPAddress()
         {
             var host = Dns.GetHostEntry(Dns.GetHostName());
