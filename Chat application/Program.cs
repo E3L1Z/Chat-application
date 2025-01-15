@@ -6,7 +6,6 @@ using System.Text;
 
 /*
  * TODO
- * Users showed weird results
  * Messages longer than 1008 bytes
  * Kick
  * Encryption
@@ -200,7 +199,7 @@ public class chatApplication()
         return IPAddress.Parse("127.0.0.1");
     }
 
-    private static bool SocketConnected(Socket s)
+    public static bool SocketConnected(Socket s)
     {
         if(s == null) return false;
 

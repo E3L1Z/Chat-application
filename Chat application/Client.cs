@@ -16,7 +16,7 @@ namespace Chat_application
 
         public void Connect(string ip, int port, string[] args)
         {
-            if(socket.Connected)
+            if(socket != null && chatApplication.SocketConnected(socket))
             {
                 Disconnect();
             }
