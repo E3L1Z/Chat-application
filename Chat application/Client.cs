@@ -16,16 +16,12 @@ namespace Chat_application
 
         public void Connect(string ip, int port, string[] args)
         {
-            if(socket == default(Socket) || socket == null)
-            {
-                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            }
-
             if(socket.Connected)
             {
-                socket.Shutdown(SocketShutdown.Both);
-                socket.Close();
+                Disconnect();
             }
+
+            socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 
             try
             {
@@ -41,6 +37,7 @@ namespace Chat_application
 
         public void Disconnect()
         {
+            //Tell server that user is disconnecting so the server can close connection on its side
             Message(1, 0, ((IPEndPoint)socket.RemoteEndPoint).Address, ((IPEndPoint)socket.RemoteEndPoint).Port, new byte[1008]);
             socket.Shutdown(SocketShutdown.Both);
             socket.Close();
@@ -50,14 +47,18 @@ namespace Chat_application
             Console.WriteLine("Disconnected");
         }
 
+        //Compile a message packet from given parameters and then send it to server
         public void Message(byte method, byte type, IPAddress destination, int destinationPort, byte[] message)
         {
-
+            //If message is larger than 1008 bytes which is max for the packet then send it in multiple packets
             for (uint i = 0; i < message.Length; i += 1008)
             {
+                //If message is larger than 1008 bytes then set index to be 1 so server knows that there will be more packets to message
+                //Othervice set index to 0
                 byte[] index = BitConverter.GetBytes(i / 1008 + (message.Length > 1008 ? 1 : 0));
                 byte[] destinationPortBytes = BitConverter.GetBytes(Convert.ToUInt16(destinationPort));
 
+                //If this is the last packet of message set index to max value so server knows no other packages will be coming to fill the message
                 if (i + 1008 > message.Length) index = new byte[] { 255, 255, 255, 255};
 
                 byte[] data = {method};
@@ -86,6 +87,7 @@ namespace Chat_application
             return (IPAddress.Parse("127.0.0.1")).GetAddressBytes();
         }
 
+        //Message received from server
         private void ReceiveCallback(IAsyncResult AR)
         {
             if (socket == null) return;
@@ -94,6 +96,7 @@ namespace Chat_application
             socketAR.EndReceive(AR);
             byte[] dataBuf = new byte[1024];
             Array.Copy(buffer, dataBuf, 1024);
+            buffer = new byte[1024];
 
             byte method = dataBuf[0];
 
@@ -103,12 +106,14 @@ namespace Chat_application
                 case 0:
                     IPAddress src = new IPAddress(dataBuf[7..11]);
 
+                    //If index is 1 or higher expect there to be continuation to current packet
                     if (BitConverter.ToInt32(dataBuf[11..15]) > 0)
                     {
 
                     }
                     else
                     {
+                        //If message type is text
                         if (dataBuf[15] == 0)
                         {
                             Console.WriteLine("{0}: {1}", src, Encoding.ASCII.GetString(dataBuf[16..]));
@@ -127,12 +132,19 @@ namespace Chat_application
                         IPAddress userIP = new IPAddress(dataBuf[i..(i + 4)]);
                         ushort userPort = BitConverter.ToUInt16(dataBuf[(i + 4)..(i + 6)]);
 
+                        //Stop message from showing user
+                        if (userIP.Equals(new IPAddress(GetLocalIPAddress())) && userPort == Convert.ToUInt16(((IPEndPoint)socket.LocalEndPoint).Port)) continue;
+
+                        //If left unchecked would continue to get users even if none were left
                         if (userIP.Equals(IPAddress.Parse("0.0.0.0"))) break;
 
                         users += string.Format("{0}:{1}, ", userIP, userPort);
                     }
 
+                    //Remove ", " at the end of users
                     if (users.Length > 0) users = users[..(users.Length - 2)];
+                    //If only users is connected to server
+                    else users = "You are the only user online";
 
                     Console.WriteLine(users);
                     break;

@@ -4,6 +4,18 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
+/*
+ * TODO
+ * Users showed weird results
+ * Messages longer than 1008 bytes
+ * Kick
+ * Encryption
+ * Comments
+ * Help command
+ * UDP connection?
+ * DNS?
+*/
+
 public class chatApplication()
 {
     static void Main()
@@ -11,6 +23,7 @@ public class chatApplication()
         Server server = null;
 
         Client client = new Client();
+
 
         string[] localNames = ["127.0.0.1", "localhost"];
 
@@ -25,6 +38,7 @@ public class chatApplication()
                     break;
 
                 case "spawn":
+                    //Check that 
                     if (server == null)
                     {
                         bool serverSpawnedSuccesfully;
@@ -45,6 +59,12 @@ public class chatApplication()
 
                     break;
                 case "join":
+                    if(commandArray.Length < 2)
+                    {
+                        Console.WriteLine("Specify a target to join to");
+                        continue;
+                    }
+
                     int port = 25000;
 
                     for (int i = 0; i < commandArray.Length; i++)

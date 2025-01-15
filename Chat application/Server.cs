@@ -65,6 +65,7 @@ namespace Chat_application
             connectionsListener.BeginAccept(AcceptCallback, null);
         }
 
+        //Client is trying to join server
         private void AcceptCallback(IAsyncResult AR)
         {
             try
@@ -78,23 +79,27 @@ namespace Chat_application
             
         }
 
+        //Data received from one of the clients
         private void ReceiveCallback(IAsyncResult AR)
         {
             Socket socket = (Socket)AR.AsyncState;
             socket.EndReceive(AR);
             byte[] dataBuf = new byte[1024];
             Array.Copy(buffer, dataBuf, 1024);
+            buffer = new byte[1024];
 
             byte method = dataBuf[0];
 
             switch (method)
             {
+                //Quit
                 case 1:
                     Console.WriteLine("{0} left on port {1}", ((IPEndPoint)socket.RemoteEndPoint).Address, ((IPEndPoint)socket.RemoteEndPoint).Port);
                     socket.Shutdown(SocketShutdown.Both);
                     socket.Close();
                     connectedClients.Remove(socket);
                     return;
+                //Fetch users
                 case 2:
                     Console.WriteLine("Sent users to {0} on port {1}", ((IPEndPoint)socket.RemoteEndPoint).Address, ((IPEndPoint)socket.RemoteEndPoint).Port);
 
@@ -111,6 +116,7 @@ namespace Chat_application
             socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socket);
         }
 
+        //Gets all of the users on current session and returs bytes that contains users ip and port
         private byte[] GetUsers()
         {
             byte[] users = new byte[0];
@@ -120,6 +126,11 @@ namespace Chat_application
                 IPAddress ip = ((IPEndPoint)client.RemoteEndPoint).Address;
                 ushort port = Convert.ToUInt16(((IPEndPoint)client.RemoteEndPoint).Port);
 
+                if (ip.Equals(IPAddress.Parse("127.0.0.1")))
+                {
+                    ip = new IPAddress(GetLocalIPAddress());
+                }
+
                 byte[] combinedData = ip.GetAddressBytes().Concat(BitConverter.GetBytes(port)).ToArray();
 
                 users = users.Concat(combinedData).ToArray();
@@ -128,18 +139,23 @@ namespace Chat_application
             return users;
         }
 
+        //Send packet to every user with ip=destination and port=port
+        //If destionaion is users ip and port is servers then send message to everyone with the ip
+        //If destination and port is servers send message to everyone
         private void ForwardMessage(byte[] packet, IPAddress destination, ushort port)
         {
             bool forwardToEveryone = false;
 
             ushort ownPort = Convert.ToUInt16(((IPEndPoint)connectionsListener.LocalEndPoint).Port);
             byte[] ownIP = GetLocalIPAddress();
+            //ip and port is servers
             if (destination.GetAddressBytes().SequenceEqual(ownIP) && port == ownPort) forwardToEveryone = true;
 
             foreach (Socket socket in connectedClients)
             {
                 IPAddress clientIP = ((IPEndPoint)socket.RemoteEndPoint).Address;
 
+                //Make sure that ip cannot be that of a localhost
                 if (clientIP.Equals(IPAddress.Parse("127.0.0.1"))) clientIP = new IPAddress(GetLocalIPAddress());
 
                 if (forwardToEveryone || (clientIP.Equals(destination) && Convert.ToUInt16(((IPEndPoint)connectionsListener.LocalEndPoint).Port) == port) || (clientIP.Equals(destination) && Convert.ToUInt16(((IPEndPoint)socket.RemoteEndPoint).Port) == port))
@@ -149,6 +165,7 @@ namespace Chat_application
             }
         }
 
+        //Stop sending message to client
         private void SendCallBack(IAsyncResult AR)
         {
             Socket socket = (Socket)AR.AsyncState;
@@ -157,6 +174,7 @@ namespace Chat_application
 
         public void CloseServer()
         {
+            //Send message to every user that te server is closing and they need to close the connection
             ForwardMessage(new byte[] { 1 }.Concat(new byte[1023]).ToArray(), new IPAddress(GetLocalIPAddress()), Convert.ToUInt16(((IPEndPoint)connectionsListener.LocalEndPoint).Port));
 
             connectedClients.Clear();
