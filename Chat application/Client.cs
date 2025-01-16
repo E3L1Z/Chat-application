@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 
+
 namespace Chat_application
 {
     internal class Client
@@ -14,6 +15,7 @@ namespace Chat_application
 
         private byte[] buffer = new byte[1024];
 
+        SortedDictionary<string, LongMessage> longMessages = new SortedDictionary<string, LongMessage>();
         public void Connect(string ip, int port, string[] args)
         {
             if(socket != null && chatApplication.SocketConnected(socket))
@@ -55,11 +57,16 @@ namespace Chat_application
             {
                 //If message is larger than 1008 bytes then set index to be 1 so server knows that there will be more packets to message
                 //Othervice set index to 0
-                byte[] index = BitConverter.GetBytes(i / 1008 + (message.Length > 1008 ? 1 : 0));
+                byte[] index = BitConverter.GetBytes((int)(i / 1008 + (message.Length > 1008 ? 1 : 0)));
                 byte[] destinationPortBytes = BitConverter.GetBytes(Convert.ToUInt16(destinationPort));
 
+                int maxIndex = (int)i + 1008;
                 //If this is the last packet of message set index to max value so server knows no other packages will be coming to fill the message
-                if (i + 1008 > message.Length) index = new byte[] { 255, 255, 255, 255};
+                if (i + 1008 > message.Length)
+                {
+                    index = new byte[] { 255, 255, 255, 255 };
+                    maxIndex = message.Length;
+                }
 
                 byte[] data = {method};
                 data = data.Concat(destination.GetAddressBytes()).ToArray();
@@ -67,7 +74,7 @@ namespace Chat_application
                 data = data.Concat(GetLocalIPAddress()).ToArray();
                 data = data.Concat(index).ToArray();
                 data = data.Concat(new byte[]{type}).ToArray();
-                data = data.Concat(message).ToArray();
+                data = data.Concat(message[(int)i..maxIndex]).ToArray();
 
                 socket.Send(data);
             }
@@ -105,11 +112,38 @@ namespace Chat_application
                 //Message
                 case 0:
                     IPAddress src = new IPAddress(dataBuf[7..11]);
+                    string srcStr = src.ToString();
 
+                    uint index = BitConverter.ToUInt32(dataBuf[11..15]);
                     //If index is 1 or higher expect there to be continuation to current packet
-                    if (BitConverter.ToInt32(dataBuf[11..15]) > 0)
+                    if (index > 0)
                     {
+                        if (index == uint.MaxValue)
+                        {
+                            string message = "";
+                            if (longMessages.ContainsKey(srcStr))
+                            {
+                                message = longMessages[srcStr].message;
+                                longMessages.Remove(srcStr);
+                            }
 
+                            message += Encoding.ASCII.GetString(dataBuf[16..]);
+
+                            //If message type is text
+                            if (dataBuf[15] == 0) Console.WriteLine("{0}: {1}", src, message);
+                        } else
+                        {
+                            if (longMessages.ContainsKey(srcStr))
+                            {
+                                LongMessage newMsg = new LongMessage(index, longMessages[srcStr].message + Encoding.ASCII.GetString(dataBuf[16..]));
+                                longMessages.Remove(srcStr);
+
+                                longMessages.Add(srcStr, newMsg);
+                            } else
+                            {
+                                longMessages.Add(srcStr, new LongMessage(index, Encoding.ASCII.GetString(dataBuf[16..])));
+                            }
+                        }
                     }
                     else
                     {
@@ -151,6 +185,17 @@ namespace Chat_application
             }
 
             socketAR.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(ReceiveCallback), socketAR);
+        }
+
+        private struct LongMessage
+        {
+            public LongMessage(uint _index, string _message)
+            {
+                index = _index;
+                message = _message;
+            }
+            public uint index = 0;
+            public string message = "";
         }
     }
 }

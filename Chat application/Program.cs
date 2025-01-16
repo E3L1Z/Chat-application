@@ -9,7 +9,6 @@ using System.Text;
  * Messages longer than 1008 bytes
  * Encryption
  * UDP connection?
- * DNS?
  * README.md
 */
 
