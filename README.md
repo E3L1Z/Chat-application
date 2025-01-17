@@ -1,4 +1,4 @@
-# Genral
+# General
 This is my attempt at an chat application. 
 **IT IS NOT MEANT TO BE SECURE** thus do not use it for any real applications.
 However do feel free to use it in educational purposes.
@@ -38,6 +38,7 @@ Currently the only supported data type is ASCII text which will give data type v
 
 
 # Commands
+List of all the commands and a bit of what they do.
 
 ## Spawn
 `spawn [-P*port*]?`
