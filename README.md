@@ -1,5 +1,5 @@
 # General
-This is my attempt at an chat application. 
+This is my attempt at an chat application.
 **IT IS NOT MEANT TO BE SECURE** thus do not use it for any real applications.
 However do feel free to use it in educational purposes.
 
@@ -22,10 +22,10 @@ Method can have following values:
 Used to tell who the packet is suposed to be delivered.
 On default both are same as servers.
 If destination port is the same as servers then send packet to everyone who has the same ip as destination ip. Except if destination IP is same as servers then send packet to everyone.
-Otherwise send packet to user whose port and ip matches that of destination
+Otherwise send packet to user whose port and ip matches that of destination.
 
 ## Source IP
-Used to tell who sent packet. If packet originates from server then source IP will be left empty
+Used to tell who sent packet. If packet originates from server then source IP will be left empty.
 
 ## Message index
 If message length is lower or equal to 1008 bytes then index will be sent to 0.
@@ -41,54 +41,45 @@ Currently the only supported data type is ASCII text which will give data type v
 List of all the commands and a bit of what they do.
 
 ## Spawn
-`spawn [-P*port*]?`
-
-Used to spawn in a server.
-  -P (-P\*port\* or -P \*port\*) - Can be used to specify which port server will be open in (default 2500).
+`spawn [-P*port*]?`\
+Used to spawn in a server.\
+  * -P (-P\*port\* or -P \*port\*) - Can be used to specify which port server will be open in (default 2500).
 
 ## Close
-`close`
-
-Used to close current server.
+`close`\
+Used to close current server.\
 Sends package with metho equal to 0 to every client online. This then tells the client to act the same way as if user gave command [quit](#quit)
 
 ## Join
-`join *destinationIP* [-P*port*]?`
-
-Join server on destinationIP on port
-    -P (-P\*port\* or -P \*port\*) - Can be used to specify which port to connect to server (default 2500).
+`join *destinationIP* [-P*port*]?`\
+Join server on destinationIP on port\
+  * -P (-P\*port\* or -P \*port\*) - Can be used to specify which port to connect to server (default 2500).
 
 ## Quit
-`quit`
-
-Leaves server.
+`quit`\
+Leaves server.\
 Send a packet to server with method eequal to 0 which tells server the client is leaving.
 
 ## Msg
-`msg [-d*destinationIP*]? [-P*port*]?`
-
-Send message to user with ip equal to destinationIP and port equal to port. 
-If port is equal to servers port then send packet to every user on ip destinationIP.
-If port and destinationIP is the same as servers send message to every user online on server.
-  -d (-d\*destinationIP\* or -d \*destinationIP\*) - IP which packet will be sent to. Can also be 127.0.0.1 or localhost (default servers IP).
-  -P (-P\*port\*) or -P \*port\*) - port to which packet will be sent to (default servers port).
+`msg [-d*destinationIP*]? [-P*port*]?`\
+Send message to user with ip equal to destinationIP and port equal to port.\ 
+If port is equal to servers port then send packet to every user on ip destinationIP.\
+If port and destinationIP is the same as servers send message to every user online on server.\
+  * -d (-d\*destinationIP\* or -d \*destinationIP\*) - IP which packet will be sent to. Can also be 127.0.0.1 or localhost (default servers IP).\
+  * -P (-P\*port\*) or -P \*port\*) - port to which packet will be sent to (default servers port).
 
 ## Info
-`info`
-
+`info`\
 Lists important info such as users own IP, whether user has server online and if so then on which port and if user is conncted to any server and if so then to what port and IP.
 
 ## Users
-`users`
-
+`users`\
 Sends a package with method 2 that will ask server to provide user with every user online on the server except for the user themselves.
 
 ## Kick
-`kick *IP*:*port*`
-
+`kick *IP*:*port*`\
 Sends same packet as [close](#close) but only to user with the same IP and port.
 
 ## Help
-`help`
-
+`help`\
 Shows every possible command and a little bit of information on what they do.
