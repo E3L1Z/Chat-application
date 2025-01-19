@@ -127,7 +127,7 @@ namespace Chat_application
                                 longMessages.Remove(srcStr);
                             }
 
-                            message += Encoding.ASCII.GetString(dataBuf[16..]);
+                            message += Encoding.UTF8.GetString(dataBuf[16..]);
 
                             //If message type is text
                             if (dataBuf[15] == 0) Console.WriteLine("{0}: {1}", src, message);
@@ -135,13 +135,13 @@ namespace Chat_application
                         {
                             if (longMessages.ContainsKey(srcStr))
                             {
-                                LongMessage newMsg = new LongMessage(index, longMessages[srcStr].message + Encoding.ASCII.GetString(dataBuf[16..]));
+                                LongMessage newMsg = new LongMessage(index, longMessages[srcStr].message + Encoding.UTF8.GetString(dataBuf[16..]));
                                 longMessages.Remove(srcStr);
 
                                 longMessages.Add(srcStr, newMsg);
                             } else
                             {
-                                longMessages.Add(srcStr, new LongMessage(index, Encoding.ASCII.GetString(dataBuf[16..])));
+                                longMessages.Add(srcStr, new LongMessage(index, Encoding.UTF8.GetString(dataBuf[16..])));
                             }
                         }
                     }
@@ -150,7 +150,7 @@ namespace Chat_application
                         //If message type is text
                         if (dataBuf[15] == 0)
                         {
-                            Console.WriteLine("{0}: {1}", src, Encoding.ASCII.GetString(dataBuf[16..]));
+                            Console.WriteLine("{0}: {1}", src, Encoding.UTF8.GetString(dataBuf[16..]));
                         }
                     }
                     break;

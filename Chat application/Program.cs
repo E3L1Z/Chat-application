@@ -6,10 +6,10 @@ using System.Text;
 
 /*
  * TODO
- * Messages longer than 1008 bytes
  * Encryption
+ * ACK?
  * UDP connection?
- * README.md
+ * Switch to ReceiveAsync and SendAsync?
 */
 
 public class chatApplication()
